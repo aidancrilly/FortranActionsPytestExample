@@ -1,0 +1,102 @@
+# Note, < ?? > denote missing information specific to the user
+# The workflow is written for a runner using RedHat Enterprise OS
+
+name: build_and_test
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: [< insert runner type >]
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+
+      # The following three tasks install the necessary compilers and libraries needed
+      - name: RedHat install
+        run: |
+          yum -y install gcc gcc-c++ kernel-devel make
+          yum -y install python3-devel libtiff-devel libjpeg-devel libzip-devel freetype-devel lcms2-devel libwebp-devel tcl-devel tk-devel libXt mesa-libGL
+
+      - name: Configure yum install of Intel oneAPI
+        run: |
+          tee > /tmp/oneAPI.repo << EOF
+          [oneAPI]
+          name=Intel® oneAPI repository
+          baseurl=https://yum.repos.intel.com/oneapi
+          enabled=1
+          gpgcheck=1
+          repo_gpgcheck=1
+          gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          EOF
+          sudo mv /tmp/oneAPI.repo /etc/yum.repos.d
+
+      - name: Install Intel compiler
+        timeout-minutes: 10
+        run: |
+          sudo yum -y install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl
+          source /opt/intel/oneapi/setvars.sh
+          printenv >> $GITHUB_ENV
+
+      - name: Checkout project code
+        uses: actions/checkout@v2
+
+      # If there is a separate data repository needed for testing 
+      # then the following code can be uncommented and configured
+
+      # The data repository requires a deploy key such that it can be
+      # cloned during workflow testing.
+      # The corresponding private key needs to be a secret of the code repo
+      # In the example below, this secret is named DATA_KEY
+      # The following tasks perform the necessary checkout of the data repo
+
+      # START multiple directory code
+
+      - name: SSH business
+        run: |
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Checkout project data
+        uses: actions/checkout@v2
+        with:
+          ssh-key: ${{ secrets.DATA_KEY }}
+          repository: < insert name of data repo >
+          path: < insert name of directory into which the data repo is cloned >
+
+      ### END multiple directory code
+
+      # Use a makefile to compile the fortran code
+      # For this, we have installed the mpiifort compiler from Intel oneAPI
+      - name: Make
+        run: |
+          mkdir obj mod
+          make
+
+      # Once the executable has been created, pytest can be called to perform testing
+      - name: Install pytest and reqs
+        run: |
+          pip3 install -r ./.github/workflows/python_testing_requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest testing/
+
+      - name: Clean up tests
+        if: always()
+        run: |
+          rm < executable name >
+          rm -rf mod
+          rm -rf obj
+          rm -rf < any output directories created >

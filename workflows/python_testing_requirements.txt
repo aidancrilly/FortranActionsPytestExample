@@ -1,0 +1,6 @@
+numpy
+scipy
+pandas
+dataclasses
+f90nml
+pytest
