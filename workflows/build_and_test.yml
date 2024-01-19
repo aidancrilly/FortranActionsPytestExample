@@ -46,8 +46,8 @@ jobs:
       - name: Install Intel compiler
         timeout-minutes: 10
         run: |
-          sudo yum -y install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl
-          source /opt/intel/oneapi/setvars.sh
+          sudo yum -y install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl
+          source /opt/intel/oneapi/setvars.sh intel64
           printenv >> $GITHUB_ENV
 
       - name: Checkout project code
